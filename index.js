@@ -3,22 +3,22 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const cors = require('cors');
 
 const app = express();
-// 允许所有源访问代理服务（Pages 页面可正常请求）
-app.use(cors());
+app.use(cors()); // 允许所有源跨域
 
-// 配置代理规则：匹配 /api 开头的请求，转发到你的目标接口
+// 代理配置
 app.use('/api', createProxyMiddleware({
-  target: 'http://user.stockapi.com.cn', // 替换为你的目标接口域名
-  changeOrigin: true, // 关键：修改请求头 Origin，避免后端跨域拦截
-  pathRewrite: { '^/api': '' }, // 去掉 /api 前缀（比如 /api/v1/xxx → /v1/xxx）
-  secure: false, // 如果目标接口是 HTTP，需设为 false；HTTPS 则设为 true
+  target: 'https://user.stockapi.com.cn', // 强制用 HTTPS，避免 308 重定向
+  changeOrigin: true,
+  secure: true, // 目标是 HTTPS，必须设为 true
+  followRedirects: true, // 让代理自动跟随 308 重定向
+  pathRewrite: {
+    '^/api': '' // 把 /api 前缀去掉，转发到 /v1/...
+  },
+  onProxyRes: function (proxyRes, req, res) {
+    // 移除可能导致重定向的缓存头，避免浏览器缓存旧地址
+    delete proxyRes.headers['cache-control'];
+    delete proxyRes.headers['expires'];
+  }
 }));
 
-// 启动服务（Vercel 会自动识别端口）
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`代理服务运行在端口：${PORT}`);
-});
-
-// 导出 app（Vercel 要求的格式）
 module.exports = app;
